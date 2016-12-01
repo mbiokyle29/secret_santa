@@ -8,7 +8,17 @@ import argparse
 import logging
 import os
 import random
+import smtplib
+from email.mime.text import MIMEText
 
+from settings import (
+    EMAIL_SUBJECT,
+    EMAIL_TEMPLATE,
+    GMAIL_SMTP_PORT,
+    GMAIL_SMTP_URL,
+    SANTA_EMAIL,
+    SANTA_PASSWORD
+)
 __modname__ = "secret_santa.py"
 
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +33,6 @@ def main():
     parser.add_argument("-e", "--emails-file", help="Path to emails tsv file", required=True)
     args = parser.parse_args()
 
-
     couples = make_couples_list(args.couples_file)
     all_people = list(sum(couples, ()))
 
@@ -35,8 +44,6 @@ def main():
         raise SystemExit("Emails file missing people -- Exiting")
 
     santa_to_santee = {}
-
-
     solved = False
     while not solved:
 
@@ -69,12 +76,11 @@ def main():
 
     # its been solved
     santa_to_santee = curr_santa_to_santee
-    logger.info("Secret Santa Solution Found!")
+    logger.info("Secret Santa Solution Found!, sending results...")
 
     for santa in santa_to_santee:
         santee = santa_to_santee[santa]
-        print "Santa: {}\tSantee: {}".format(santa, santee)
-
+        send_email(santa, person_to_email[santa], santee)
 
 def make_couples_list(couples_file):
     """
@@ -118,6 +124,23 @@ def make_email_mapping(email_file):
 
     return email_mapping
 
+
+def send_email(santa, santas_email, santee):
+    """
+    Send the email to the santa, informing them
+    who is their santee
+    """
+    message = MIMEText(EMAIL_TEMPLATE.format(santa, santee.upper()))
+    message['From'] = "Santa Clause"
+    message['To'] = santas_email
+    message['Subject'] = EMAIL_SUBJECT
+
+    server = smtplib.SMTP(GMAIL_SMTP_URL, GMAIL_SMTP_PORT)
+    server.starttls()
+    server.login(SANTA_EMAIL, SANTA_PASSWORD)
+    text = message.as_string()
+    server.sendmail(SANTA_EMAIL, santas_email, text)
+    server.quit()
 
 if __name__ == "__main__":
     main()
